@@ -1,0 +1,165 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  STOREKEEPER
+  ENGINEER
+  MANAGEMENT
+}
+
+enum AssetStatus {
+  AVAILABLE
+  IN_USE
+  ON_LOAN
+  PROJECT
+  MAINTENANCE
+  RESERVED
+  LOST
+  DISPOSED
+}
+
+enum Condition {
+  NEW
+  GOOD
+  FAIR
+  DAMAGED
+  BROKEN
+}
+
+enum TxAction {
+  REGISTERED
+  CHECK_OUT
+  TRANSFER
+  CHECK_IN
+  RESERVE
+  CANCEL_RESERVATION
+  REMINDER
+  LOST
+  FOUND
+  MAINTENANCE
+  REPAIRED
+  DISPOSED
+  CALIBRATION
+  CALIBRATION_REJECTED
+}
+
+enum CalResult {
+  ACCEPT
+  REJECT
+}
+
+/// Login accounts
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  fullName     String
+  role         Role     @default(ENGINEER)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+}
+
+/// People who can hold assets (may or may not have a login)
+model Person {
+  id      Int     @id @default(autoincrement())
+  name    String  @unique
+  email   String?
+  section String?
+  phone   String?
+  active  Boolean @default(true)
+}
+
+model Section {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+}
+
+model Site {
+  id     Int     @id @default(autoincrement())
+  name   String  @unique
+  area   String?
+  active Boolean @default(true)
+}
+
+model Asset {
+  id                String        @id // AssetID, e.g. ENG-TLS-001 (QR content)
+  sku               String?
+  name              String
+  category          String
+  brand             String?
+  model             String?
+  serialNumber      String?
+  qty               Int           @default(1)
+  storageLocation   String?
+  pic               String? // current holder
+  picEmail          String?
+  section           String?
+  project           String?
+  status            AssetStatus   @default(AVAILABLE)
+  condition         Condition     @default(GOOD)
+  purchaseDate      DateTime?
+  purchaseValue     Decimal?      @db.Decimal(15, 2)
+  warrantyEnd       DateTime?
+  calRequired       Boolean       @default(false)
+  calDue            DateTime?
+  calIntervalMonths Int           @default(12)
+  currentLocation   String?
+  inspectionSite    String?
+  checkedOutAt      DateTime?
+  dueBack           DateTime? // only for ON_LOAN
+  reservedFor       String?
+  reservedSection   String?
+  notes             String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  transactions      Transaction[]
+  calibrations      Calibration[]
+
+  @@index([status])
+  @@index([category])
+  @@index([calDue])
+}
+
+model Transaction {
+  id             Int          @id @default(autoincrement())
+  assetId        String
+  asset          Asset        @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  action         TxAction
+  loanType       AssetStatus?
+  fromPic        String?
+  toPic          String?
+  section        String?
+  inspectionSite String?
+  dueBack        DateTime?
+  condition      Condition?
+  note           String?
+  recordedBy     String?
+  createdAt      DateTime     @default(now())
+
+  @@index([assetId, createdAt])
+  @@index([createdAt])
+}
+
+model Calibration {
+  id              Int       @id @default(autoincrement())
+  assetId         String
+  asset           Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  calibratedAt    DateTime
+  intervalMonths  Int
+  vendor          String?
+  certificateNo   String?
+  certificateFile String?
+  result          CalResult
+  nextDue         DateTime?
+  recordedBy      String?
+  createdAt       DateTime  @default(now())
+
+  @@index([assetId, calibratedAt])
+}

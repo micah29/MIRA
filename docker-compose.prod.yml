@@ -1,0 +1,46 @@
+# MIRA production stack
+#   docker compose -f docker-compose.prod.yml up -d --build
+# The site is published only on 127.0.0.1:8081; the VPS's main Nginx (the one serving VIRA)
+# forwards mira.solaraccess.id to it and handles HTTPS.
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: elina
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: elina_db
+      TZ: Asia/Jakarta
+    volumes:
+      - elina_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U elina -d elina_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://elina:${POSTGRES_PASSWORD}@db:5432/elina_db?schema=public
+      PORT: 3000
+      UPLOAD_DIR: uploads
+    volumes:
+      - elina_uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${MIRA_PORT:-8081}:80"
+    depends_on:
+      - backend
+
+volumes:
+  elina_pg:
+  elina_uploads:
