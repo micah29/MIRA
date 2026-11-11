@@ -39,7 +39,8 @@ export default function AssetModal({ id, onClose, onChanged }: { id: string; onC
   const guest = user.role === 'GUEST';
 
   if (view === 'out1' || view === 'out2') {
-    const title = fresh ? 'Check out' : 'Reassign';
+    const requestOnly = can(user, 'request') && !can(user, 'store');
+    const title = requestOnly ? (fresh ? 'Request to borrow' : 'Request reassign') : (fresh ? 'Check out' : 'Reassign');
     return (
       <Modal title={title} subtitle={`${a.name} (${a.id})`} onClose={onClose}>
         <div className="mb-4 flex gap-1.5"><i className="h-1 flex-1 rounded bg-sky" /><i className={`h-1 flex-1 rounded ${view === 'out2' ? 'bg-sky' : 'bg-slate-200'}`} /></div>
@@ -52,7 +53,7 @@ export default function AssetModal({ id, onClose, onChanged }: { id: string; onC
           </div>
           <p className="mb-4 text-xs text-slate-500">{{ ON_LOAN: 'Borrowed for a job. Needs a return date; overdue reminders go to the holder.', IN_USE: 'Assigned long-term to one person. No return date.', PROJECT: 'Deployed at a client site. No return date.' }[f.type]}</p></>}
           <label className="label" htmlFor="pic">Person (PIC)</label>
-          <input id="pic" className="input mb-4" list="people" value={f.pic} readOnly={guest} onChange={(e) => onPerson(e.target.value)} placeholder="e.g. Rizky Budiman" />
+          <input id="pic" className="input mb-4" list="people" value={f.pic} readOnly={guest || requestOnly} onChange={(e) => onPerson(e.target.value)} placeholder="e.g. Rizky Budiman" />
           <datalist id="people">{people.map((p) => <option key={p.name} value={p.name} />)}</datalist>
           <label className="label" htmlFor="sec">{guest ? 'Division / company' : 'Division'}</label>
           {guest
@@ -77,8 +78,10 @@ export default function AssetModal({ id, onClose, onChanged }: { id: string; onC
             <button className="btn-finish" disabled={busy} onClick={() => {
               if (f.type !== 'IN_USE' && !f.site) return setErr('Add the inspection site to continue.');
               if (f.type === 'ON_LOAN' && (!f.due || dueOn(f.due).getTime() <= Date.now())) return setErr('Pick a return date in the future (due back by 17:00).');
-              run(() => api(`/assets/${a.id}/checkout`, { body: { type: f.type, pic: f.pic, section: f.section, inspectionSite: f.site || undefined, dueBack: f.type === 'ON_LOAN' ? dueOn(f.due).toISOString() : undefined, note: f.note || undefined } }));
-            }}>Finish</button></div>
+              const body = { type: f.type, pic: f.pic, section: f.section, inspectionSite: f.site || undefined, dueBack: f.type === 'ON_LOAN' ? dueOn(f.due).toISOString() : undefined, note: f.note || undefined };
+              if (requestOnly) run(() => api(`/assets/${a.id}/request`, { body }));
+              else run(() => api(`/assets/${a.id}/checkout`, { body }));
+            }}>{requestOnly ? 'Send request' : 'Finish'}</button></div>
         </>)}
       </Modal>
     );
@@ -98,7 +101,7 @@ export default function AssetModal({ id, onClose, onChanged }: { id: string; onC
       <textarea id="cinote" className="input" rows={2} value={f.note} onChange={(e) => set('note', e.target.value)} placeholder="What's wrong, if anything" />
       <Err />
       <div className="mt-5 flex justify-between"><button className="btn-back" onClick={() => setView('detail')}>Cancel</button>
-        <button className="btn-finish" disabled={busy} onClick={() => run(() => api(`/assets/${a.id}/checkin`, { body: { condition: f.cond, note: f.note || undefined } }))}>Check in to {lookups?.storekeeper}</button></div>
+        <button className="btn-finish" disabled={busy} onClick={() => run(() => api(`/assets/${a.id}/checkin`, { body: { condition: f.cond, note: f.note || undefined } }))}>Check in to Storekeeper</button></div>
     </Modal>
   );
 
@@ -154,8 +157,18 @@ export default function AssetModal({ id, onClose, onChanged }: { id: string; onC
     );
   }
 
-  const borrow = can(user, 'borrow'), store = can(user, 'store'), lend = borrow || guest;
+  const borrow = can(user, 'borrow'), store = can(user, 'store'), requestOnly = can(user, 'request'), lend = store; // direct check-out/reassign: Storekeeper+Admin only
+  const pending = a.borrowRequests?.[0] || null;
+  const myPending = pending && pending.requestedByEmail && pending.requestedByEmail.toLowerCase() === user.email?.toLowerCase();
   const kv = (k: string, v: any) => (<><dt className="kv-k">{k}</dt><dd className="kv-v">{v}</dd></>);
+  async function decide(approveIt: boolean) {
+    setBusy(true); setErr('');
+    try {
+      if (approveIt) await api(`/approvals/${pending.id}/approve`, { method: 'POST' });
+      else await api(`/approvals/${pending.id}/reject`, { body: {} });
+      await load(); onChanged?.();
+    } catch (e) { setErr(e.message); } finally { setBusy(false); }
+  }
   return (
     <Modal title={a.name} subtitle={`${a.id} — Asset details`} onClose={onClose}>
       <div className="flex gap-4">
@@ -180,20 +193,29 @@ export default function AssetModal({ id, onClose, onChanged }: { id: string; onC
             ? <a className="btn-ghost btn-sm mt-2" href={`/api/files/${c.certificateFile}`} target="_blank" rel="noreferrer">View certificate (PDF)</a>
             : <div className="mt-1 text-xs text-slate-400">No certificate file uploaded</div>}
         </div>); })()}
+      {pending && (
+        <div className={`mt-3 rounded-xl border p-3 text-sm ${can(user, 'approve') ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-sky-200 bg-sky-50 text-brand'}`}>
+          {can(user, 'approve')
+            ? <><p className="mb-2"><b>{pending.requestedBy}</b> ({pending.requesterRole === 'GUEST' ? 'General loan' : 'Engineer'}) requested to borrow this asset{pending.inspectionSite ? `, for ${pending.inspectionSite}` : ''}. Waiting for your decision.</p>
+                <div className="flex gap-2"><button className="btn-finish btn-sm" disabled={busy} onClick={() => decide(true)}>Approve</button><button className="btn-ghost btn-sm text-red-600" disabled={busy} onClick={() => decide(false)}>Reject</button></div></>
+            : myPending ? 'Your request to borrow this asset is waiting for approval.' : `A request for this asset by ${pending.requestedBy} is waiting for approval.`}
+        </div>)}
       {blocked && <p className="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Calibration has expired. Record a new calibration before this asset can be checked out or reassigned.</p>}
       <Err />
       <div className="mt-4 flex flex-wrap gap-2">
-        {fresh && lend && <button className="btn-finish" disabled={blocked} onClick={() => { if (guest) { set('type', 'ON_LOAN'); set('pic', user.fullName); } else { set('pic', a.reservedFor || ''); set('section', a.reservedSection || ''); } setView('out1'); }}>{guest ? 'Borrow' : 'Check out'}</button>}
-        {a.status === 'AVAILABLE' && lend && <button className="btn-ghost" onClick={() => { if (guest) set('pic', user.fullName); setView('reserve'); }}>Reserve</button>}
-        {a.status === 'RESERVED' && borrow && <button className="btn-ghost" disabled={busy} onClick={() => run(() => api(`/assets/${a.id}/cancel-reservation`, { method: 'POST' }))}>Cancel reservation</button>}
+        {fresh && !pending && lend && <button className="btn-finish" disabled={blocked} onClick={() => { set('pic', a.reservedFor || ''); set('section', a.reservedSection || ''); setView('out1'); }}>Check out</button>}
+        {fresh && !pending && requestOnly && !lend && <button className="btn-finish" disabled={blocked} onClick={() => { set('pic', user.fullName); set('section', people.find((p) => p.name === user.fullName)?.section || ''); setView('out1'); }}>Request to borrow</button>}
+        {a.status === 'AVAILABLE' && !pending && (lend || requestOnly) && <button className="btn-ghost" onClick={() => { if (guest) set('pic', user.fullName); setView('reserve'); }}>Reserve</button>}
+        {a.status === 'RESERVED' && (borrow || requestOnly) && <button className="btn-ghost" disabled={busy} onClick={() => run(() => api(`/assets/${a.id}/cancel-reservation`, { method: 'POST' }))}>Cancel reservation</button>}
         {isOut(a.status) && store && <button className="btn-finish" onClick={() => setView('in')}>Check in</button>}
-        {isOut(a.status) && borrow && <button className="btn-next" disabled={blocked} onClick={() => { set('pic', ''); set('section', ''); setView('out1'); }}>Reassign</button>}
-        {a.status === 'ON_LOAN' && store && <button className="btn-back" disabled={busy} onClick={() => run(() => api(`/assets/${a.id}/remind`, { method: 'POST' }))}>Send reminder</button>}
+        {isOut(a.status) && !pending && lend && <button className="btn-next" disabled={blocked} onClick={() => { set('pic', ''); set('section', ''); setView('out1'); }}>Reassign</button>}
+        {isOut(a.status) && !pending && requestOnly && !lend && <button className="btn-next" disabled={blocked} onClick={() => { set('pic', user.fullName); set('section', people.find((p) => p.name === user.fullName)?.section || ''); setView('out1'); }}>Request reassign</button>}
+        {a.status === 'ON_LOAN' && can(user, 'remind') && <button className="btn-back" disabled={busy} onClick={() => run(() => api(`/assets/${a.id}/remind`, { method: 'POST' }))}>Send reminder</button>}
         {a.status === 'MAINTENANCE' && store && <button className="btn-finish" disabled={busy} onClick={() => run(() => api(`/assets/${a.id}/repaired`, { method: 'POST' }))}>Mark repaired</button>}
         {a.status === 'LOST' && store && <button className="btn-finish" disabled={busy} onClick={() => run(() => api(`/assets/${a.id}/found`, { method: 'POST' }))}>Mark found</button>}
         {(a.calRequired || a.calDue) && a.status !== 'DISPOSED' && store && <button className="btn-back" onClick={() => setView('cal')}>Record calibration</button>}
         {a.status === 'AVAILABLE' && store && <button className="btn-ghost btn-sm" disabled={busy} onClick={() => run(() => api(`/assets/${a.id}/maintenance`, { body: {} }))}>Send to maintenance</button>}
-        {isOut(a.status) && borrow && <button className="btn-ghost btn-sm text-red-600" disabled={busy} onClick={() => confirm('Report this asset as lost?') && run(() => api(`/assets/${a.id}/lost`, { body: {} }))}>Report lost</button>}
+        {isOut(a.status) && (borrow || requestOnly) && <button className="btn-ghost btn-sm text-red-600" disabled={busy} onClick={() => confirm('Report this asset as lost?') && run(() => api(`/assets/${a.id}/lost`, { body: {} }))}>Report lost</button>}
       </div>
       {store && a.status !== 'DISPOSED' && (
         <div className="mt-4 flex flex-wrap justify-between gap-2 border-t border-slate-200 pt-4">

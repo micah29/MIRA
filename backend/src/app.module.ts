@@ -11,13 +11,14 @@ import { RemindersModule } from './reminders/reminders.module';
 import { LookupsModule } from './lookups/lookups.module';
 import { UsersModule } from './users/users.module';
 import { TransactionsModule } from './transactions/transactions.module';
+import { ApprovalsModule } from './approvals/approvals.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
     PrismaModule, AuthModule, MailModule, AssetsModule, CalibrationsModule,
-    DashboardModule, RemindersModule, LookupsModule, UsersModule, TransactionsModule,
+    DashboardModule, RemindersModule, LookupsModule, UsersModule, TransactionsModule, ApprovalsModule,
   ],
 })
 export class AppModule {}

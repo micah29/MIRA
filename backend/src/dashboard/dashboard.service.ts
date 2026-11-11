@@ -9,7 +9,7 @@ export class DashboardService {
   async summary() {
     const now = new Date();
     const soon = new Date(Date.now() + 30 * 864e5);
-    const [byStatus, byCategory, total, damaged, overdue, calSoon, calExpired, outBySection, bySite, nextCalibrations, overdueList, expiredList] = await Promise.all([
+    const [byStatus, byCategory, total, damaged, overdue, calSoon, calExpired, outBySection, bySite, nextCalibrations, overdueList, expiredList, pendingApprovals] = await Promise.all([
       this.prisma.asset.groupBy({ by: ['status'], _count: true }),
       this.prisma.asset.groupBy({ by: ['category'], where: { status: { not: 'DISPOSED' } }, _count: true }),
       this.prisma.asset.count(),
@@ -22,10 +22,11 @@ export class DashboardService {
       this.prisma.asset.findMany({ where: { calDue: { not: null }, status: { not: 'DISPOSED' } }, orderBy: { calDue: 'asc' }, take: 5 }),
       this.prisma.asset.findMany({ where: { status: 'ON_LOAN', dueBack: { lt: now } }, orderBy: { dueBack: 'asc' } }),
       this.prisma.asset.findMany({ where: { calRequired: true, status: { not: 'DISPOSED' }, calDue: { lt: now } } }),
+      this.prisma.borrowRequest.count({ where: { status: 'PENDING' } }),
     ]);
     const status = Object.fromEntries(byStatus.map((s) => [s.status, s._count]));
     return {
-      total, damaged, overdue, calibrationDue: calSoon + calExpired, calibrationExpired: calExpired, status,
+      total, damaged, overdue, calibrationDue: calSoon + calExpired, calibrationExpired: calExpired, pendingApprovals, status,
       byCategory: byCategory.map((c) => ({ name: c.category, count: c._count })).sort((a, b) => b.count - a.count),
       bySection: outBySection.map((s) => ({ name: s.section || 'Not recorded', count: s._count })).sort((a, b) => b.count - a.count),
       bySite: bySite.map((s) => ({ name: s.inspectionSite || 'Not recorded', count: s._count })).sort((a, b) => b.count - a.count),

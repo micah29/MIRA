@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: elina
       POSTGRES_PASSWORD: elina
       POSTGRES_DB: elina_db
-    ports: ["5432:5432"]
+    ports: ["5434:5432"]
     volumes: [elina_pg:/var/lib/postgresql/data]
 volumes:
   elina_pg:

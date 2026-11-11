@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { useAuth } from '../lib/auth';
+import { can, useAuth } from '../lib/auth';
 
 const NAV = [
   ['/', 'Dashboard', 'M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z'],
@@ -8,17 +8,23 @@ const NAV = [
   ['/scan', 'Scan QR', 'M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4M7 12h10'],
   ['/calibration', 'Calibration', 'M3 5h18v16H3zM3 10h18M8 3v4M16 3v4M9 15l2 2 4-4'],
   ['/activity', 'Activity', 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3 2'],
-  ['/labels', 'QR labels', 'M3 12V3h9l9 9-9 9z'],
 ];
+/** Only Admin may print/manage QR labels. */
+const LABELS_NAV = ['/labels', 'QR labels', 'M3 12V3h9l9 9-9 9z'];
+/** Storekeeper + Admin approve borrow requests. */
+const APPROVALS_NAV = ['/approvals', 'Approvals', 'M9 12l2 2 4-4M7.8 4.2A9 9 0 1 1 4.2 7.8'];
 const ADMIN_NAV = [['/users', 'Users', 'M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 10a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM22 19v-1a4 4 0 0 0-3-3.9M16 3.1a3.5 3.5 0 0 1 0 6.8']];
 
 export default function Layout() {
   const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
   const loc = useLocation();
-  // Guests: no QR label printing; Admin: extra Users page
-  const base = user.role === 'GUEST' ? NAV.filter(([p]) => p !== '/labels') : NAV;
-  const items = user.role === 'ADMIN' ? [...base, ...ADMIN_NAV] : base;
+  const items = [
+    ...NAV,
+    ...(can(user, 'approve') ? [APPROVALS_NAV] : []),
+    ...(can(user, 'labelsAdmin') ? [LABELS_NAV] : []),
+    ...(user.role === 'ADMIN' ? ADMIN_NAV : []),
+  ];
   const title = items.find(([p]) => p === loc.pathname)?.[1] || 'MIRA';
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[248px_1fr]">

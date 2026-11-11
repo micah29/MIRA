@@ -27,6 +27,21 @@ export function AuthProvider({ children }) {
   return <Ctx.Provider value={{ user, lookups, login, loginGuest, logout, ready }}>{children}</Ctx.Provider>;
 }
 export const useAuth = () => useContext(Ctx);
-/** Storekeeper and admin can do everything; engineers can borrow; management is read-only. */
-export const can = (u: User | null, action: 'borrow' | 'store') =>
-  !!u && (u.role === 'ADMIN' || u.role === 'STOREKEEPER' || (action === 'borrow' && u.role === 'ENGINEER'));
+/**
+ * 'store'    = full custody rights: check out directly, check in, calibration, maintenance (Storekeeper, Admin)
+ * 'request'  = must ask to borrow and wait for approval (Engineer, Guest)
+ * 'approve'  = can approve/reject borrow requests, see the Approvals page and the calibration-due notice (Storekeeper, Admin)
+ * 'remind'   = Send reminder — deliberately Storekeeper only, Admin excluded on purpose
+ * 'labelsAdmin' = QR labels page — Admin only
+ */
+export const can = (u: User | null, action: 'borrow' | 'store' | 'request' | 'approve' | 'remind' | 'labelsAdmin') => {
+  if (!u) return false;
+  switch (action) {
+    case 'store': return u.role === 'ADMIN' || u.role === 'STOREKEEPER';
+    case 'borrow': return u.role === 'ADMIN' || u.role === 'STOREKEEPER' || u.role === 'ENGINEER' || u.role === 'GUEST';
+    case 'request': return u.role === 'ENGINEER' || u.role === 'GUEST';
+    case 'approve': return u.role === 'ADMIN' || u.role === 'STOREKEEPER';
+    case 'remind': return u.role === 'STOREKEEPER';
+    case 'labelsAdmin': return u.role === 'ADMIN';
+  }
+};

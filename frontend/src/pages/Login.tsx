@@ -23,16 +23,16 @@ export default function Login() {
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
-      {/* Left: photo + MIRA card (desktop only). Card sits in the top-left corner */}
+      {/* Left: photo + MIRA card (desktop only) */}
       <div className="relative hidden overflow-hidden lg:block">
         <img src="/login-bg.jpg" alt="ATW Solar engineers checking a rooftop PV installation" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: '35% center' }} />
-        <div className="absolute inset-0 bg-gradient-to-b from-ink/10 via-transparent to-ink/50" />
-        <div className="absolute left-10 right-10 top-10 max-w-[430px] rounded-[1.4rem] border border-white/50 bg-white/60 p-5 shadow-2xl backdrop-blur-md xl:left-14 xl:top-14">
+        <div className="absolute inset-0 bg-gradient-to-b from-ink/25 via-transparent to-ink/35" />
+        <div className="absolute left-8 top-8 w-[min(380px,calc(100%-4rem))] rounded-2xl border border-white/50 bg-white/60 p-5 shadow-2xl backdrop-blur-md xl:left-10 xl:top-10">
           <div className="text-xs font-semibold uppercase tracking-wider text-brand/80">ATW Solar Indonesia</div>
           <div className="font-head text-4xl font-extrabold leading-tight text-brand">MIRA</div>
-          <div className="text-lg font-medium text-ink">Engineering Tool Monitor</div>
+          <div className="text-base font-medium text-ink">Engineering Tool Monitor</div>
           <div className="my-3 h-px bg-ink/25" />
-          <p className="text-[13px] leading-relaxed text-ink/80">Scan, borrow and return tools, track who holds what, and keep every instrument calibrated.</p>
+          <p className="text-sm text-ink/80">Scan, borrow and return tools, track who holds what, and keep every instrument calibrated.</p>
         </div>
       </div>
 
@@ -41,7 +41,7 @@ export default function Login() {
         style={{ backgroundImage: 'radial-gradient(ellipse 70% 60% at 0% 100%, rgba(255,193,37,.5), rgba(255,193,37,0) 70%), radial-gradient(ellipse 50% 40% at 100% 0%, rgba(79,160,208,.14), rgba(79,160,208,0) 70%)' }}>
         <form onSubmit={submit} className="w-full max-w-md rounded-3xl border border-slate-200/80 bg-white/75 p-7 shadow-2xl backdrop-blur sm:p-9">
           <img src="/logo.png" alt="ATW Solar" className="mx-auto mb-2 h-[88px] w-auto" onError={(e) => (e.currentTarget.style.display = 'none')} />
-          <div className="mb-5 text-center lg:hidden"><span className="block font-head text-2xl font-extrabold text-brand">MIRA</span><span className="block text-sm text-slate-500">Engineering Tool Monitor</span></div>
+          <div className="mb-5 text-center lg:hidden"><span className="font-head text-2xl font-extrabold text-brand">MIRA</span><span className="ml-2 text-sm text-slate-500">Engineering Tool Monitor</span></div>
           <h1 className="mb-1 mt-4 text-center text-lg font-bold">{mode === 'staff' ? 'Sign in' : 'General loan'}</h1>
           <p className="mb-5 text-center text-sm text-slate-500">{mode === 'staff' ? 'Engineering team: use your work account.' : 'For borrowers outside the engineering team. We use your email to remind you to return the tool.'}</p>
 

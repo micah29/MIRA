@@ -55,6 +55,12 @@ enum CalResult {
   REJECT
 }
 
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 /// Login accounts
 model User {
   id           Int      @id @default(autoincrement())
@@ -121,6 +127,7 @@ model Asset {
   updatedAt         DateTime      @updatedAt
   transactions      Transaction[]
   calibrations      Calibration[]
+  borrowRequests    BorrowRequest[]
 
   @@index([status])
   @@index([category])
@@ -145,6 +152,31 @@ model Transaction {
 
   @@index([assetId, createdAt])
   @@index([createdAt])
+}
+
+/// A borrow request made by an Engineer or Guest, waiting for Storekeeper/Admin approval
+/// before the asset actually changes hands.
+model BorrowRequest {
+  id              Int            @id @default(autoincrement())
+  assetId         String
+  asset           Asset          @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  action          TxAction       // CHECK_OUT or TRANSFER
+  loanType        AssetStatus    // ON_LOAN, IN_USE or PROJECT
+  requestedBy     String         // name of the person who wants the asset
+  requestedByEmail String?
+  requesterRole   String         // role at the time of request (ENGINEER / GUEST)
+  section         String?
+  inspectionSite  String?
+  dueBack         DateTime?
+  note            String?
+  status          ApprovalStatus @default(PENDING)
+  decidedBy       String?
+  decidedAt       DateTime?
+  rejectReason    String?
+  createdAt       DateTime       @default(now())
+
+  @@index([assetId, status])
+  @@index([status, createdAt])
 }
 
 model Calibration {

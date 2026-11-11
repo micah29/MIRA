@@ -21,14 +21,17 @@ async function main() {
     await prisma.person.upsert({ where: { name: p.name }, update: {}, create: { name: p.name, email: p.email || null, section: p.section || null } });
   }
 
+  // Real ATW Solar accounts. Temporary password below — change it on first login.
   const pw = await bcrypt.hash('mira1234', 10);
   const users = [
-    { email: 'admin@mira.local', fullName: 'Admin MIRA', role: 'ADMIN' },
-    { email: 'muzakki@mira.local', fullName: 'Muzakki', role: 'STOREKEEPER' },
-    { email: 'engineer@mira.local', fullName: 'Rizky Budiman', role: 'ENGINEER' },
-    { email: 'manager@mira.local', fullName: 'Manager', role: 'MANAGEMENT' },
+    { email: 'ahmad.setiawan@ATWSolar.com', fullName: 'Ahmad Muzakki Setiawan', role: 'STOREKEEPER' },
+    { email: 'muhamad.bahthiyar@ATWSolar.com', fullName: 'Muhamad Aries B.', role: 'MANAGEMENT' },
+    { email: 'moch.abdilla@ATWSolar.com', fullName: 'Moch. Rafi Damas Abdilla', role: 'ENGINEER' },
+    { email: 'engineering@ATWSolar.com', fullName: 'Engineering ATW', role: 'ADMIN' },
   ];
-  for (const u of users) await prisma.user.upsert({ where: { email: u.email }, update: {}, create: { ...u, role: u.role as any, passwordHash: pw } });
+  for (const u of users) await prisma.user.upsert({ where: { email: u.email.toLowerCase() }, update: { fullName: u.fullName, role: u.role as any }, create: { ...u, email: u.email.toLowerCase(), role: u.role as any, passwordHash: pw } });
+  // The storekeeper is also a Person, so assets can show them as current holder when in the store.
+  await prisma.person.upsert({ where: { name: 'Ahmad Muzakki Setiawan' }, update: { email: 'ahmad.setiawan@ATWSolar.com', section: 'Storekeeper' }, create: { name: 'Ahmad Muzakki Setiawan', email: 'ahmad.setiawan@ATWSolar.com', section: 'Storekeeper' } });
 
   const list: any[] = (assets as any).default ?? assets;
   for (const a of list) {

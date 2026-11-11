@@ -10,7 +10,7 @@ export default function Activity() {
   const [open, setOpen] = useState<string | null>(null);
   const { user } = useAuth();
   const canAll = user.role === 'ADMIN' || user.role === 'STOREKEEPER';
-  const [scope, setScope] = useState<'mine' | 'all'>('mine');
+  const [scope, setScope] = useState<'mine' | 'all'>(canAll ? 'all' : 'mine');
   useEffect(() => { const t = setTimeout(() => api(`/transactions?${new URLSearchParams({ scope, ...(q ? { search: q } : {}) })}`).then(setList), 250); return () => clearTimeout(t); }, [q, scope]);
   return (<>
     <div className="mb-3 flex flex-wrap gap-2">

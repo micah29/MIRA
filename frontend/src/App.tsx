@@ -9,6 +9,7 @@ import Scan from './pages/Scan';
 import Activity from './pages/Activity';
 import Labels from './pages/Labels';
 import Users from './pages/Users';
+import Approvals from './pages/Approvals';
 
 export default function App() {
   const { user, ready } = useAuth();
@@ -24,6 +25,7 @@ export default function App() {
         <Route path="/activity" element={<Activity />} />
         <Route path="/labels" element={<Labels />} />
         <Route path="/users" element={<Users />} />
+        <Route path="/approvals" element={<Approvals />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Route>
     </Routes>

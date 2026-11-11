@@ -38,13 +38,20 @@ export class AssetsService {
     if (q.attention === 'overdue') Object.assign(where, { status: 'ON_LOAN', dueBack: { lt: new Date() } });
     if (q.attention === 'damaged') where.condition = { in: ['DAMAGED', 'BROKEN'] };
     if (q.attention === 'calibration') Object.assign(where, { calRequired: true, calDue: { lte: new Date(Date.now() + 30 * 864e5) } });
-    return this.prisma.asset.findMany({ where, orderBy: { id: 'asc' } });
+    return this.prisma.asset.findMany({
+      where, orderBy: { id: 'asc' },
+      include: { borrowRequests: { where: { status: 'PENDING' }, take: 1, select: { id: true } } },
+    });
   }
 
   async get(id: string) {
     const a = await this.prisma.asset.findUnique({
       where: { id },
-      include: { transactions: { orderBy: { createdAt: 'desc' }, take: 20 }, calibrations: { orderBy: { calibratedAt: 'desc' }, take: 10 } },
+      include: {
+        transactions: { orderBy: { createdAt: 'desc' }, take: 20 },
+        calibrations: { orderBy: { calibratedAt: 'desc' }, take: 10 },
+        borrowRequests: { where: { status: 'PENDING' }, take: 1, orderBy: { createdAt: 'desc' } },
+      },
     });
     if (!a) throw new NotFoundException(`No asset with ID ${id}`);
     return a;
